@@ -1,0 +1,467 @@
+---
+title: "Iris_Classification_ML"
+---
+
+```{r}
+# reinstall packages if necessary
+
+#install.packages("GGally")
+# Load libraries
+library(knitr)
+library(class)
+library(tidyverse)
+library(GGally)
+```
+
+Load the built-in iris data set. 
+
+```{r}
+data("iris")
+head(iris)
+summary(iris)
+```
+
+# Analyze Relationships
+
+To investigate relationships between variables within our dataset, we can generate a correlation matrix. This can be achieved using the `pairs.panels()` function from the PSYCH package. By creating this matrix, we can observe how different variables correlate with one another, providing valuable insights into potential associations and dependencies.
+
+```{r}
+library(psych)
+
+# Define custom colors for the Species levels.
+custom_colors <- c("red", "black", "orange")
+
+
+# Create the pairs.panels plot.
+pairs.panels(
+  iris[,1:4], 
+  scale = TRUE, 
+  hist.col = 'grey85', 
+  bg = custom_colors[iris$Species],  # Use custom colors.
+  pch = 21, 
+  main = 'Correlation Matrix: Setosa(red), Versicolor(black), Virginica(orange)'
+)
+
+```
+
+The top section of the correlation matrix provides valuable insights into the relationships between variables. It's evident that there are notable and significant correlations among most variables, with the exception of the correlation between "sepal length" and "sepal width," which appears to be weaker. 
+
+Moving to the lower half of the matrix offers a more comprehensive view. Here, not only do we observe scatter plots illustrating these correlations, but we also benefit from a color-coded distinction between the data points based on iris species. This color differentiation allows us to discern distinct clusters or groupings among the various species, shedding light on the underlying patterns within the data.
+
+# Interactive 3D Visualization
+
+Removed sepal width, which was the least significant factor
+
+```{r}
+library(plotly)
+
+# Define custom colors for the Species levels.
+custom_colors <- c("red", "black", "orange")
+
+# Create the 3D scatterplot with custom colors.
+plot_ly(data = iris, x = ~Sepal.Length, y = ~Petal.Length, z = ~Petal.Width,
+        type = "scatter3d", mode = "markers",
+        color = ~Species,
+        marker = list(color = custom_colors[iris$Species])) %>%
+  layout(
+    scene = list(
+      xaxis = list(title = 'Sepal length'),
+      yaxis = list(title = 'Petal length'),
+      zaxis = list(title = 'Petal width')
+    )
+  )
+
+```
+  
+This visualization is quite informative when it comes to understanding the distribution of the species across the three variables, which allows assess their proximity or separation more easily. For instance, we can observe that the setosa species forms a distinct and isolated cluster, whereas the versicolor and virginica species, while still forming noticeable clusters, exhibit a slight overlap. These clearly distinguishable clusters are promising for our future machine learning tasks, as they are expected to assist our model in generating accurate predictions.
+
+# Box plot of sepal width: 
+
+```{r}
+
+# Create the box plot with custom fill colors.
+ggplot(
+  data = iris, 
+  mapping = aes(x = Species, y = Sepal.Width, fill = Species)
+) +
+geom_boxplot() +
+scale_fill_manual(values = custom_colors) +  # Specify custom fill colors here.
+theme_light() +
+labs(title = 'Box plot of sepal width for each species', 
+     x = 'Species', y = 'Sepal width')
+
+
+```
+
+From this box plot it can be seen that the *setosa* species has a higher sepal width median and interquartile range compared to the other two species. In contrast, the Versicolor and Virginica show quite a bit of overlap with each other in term of their interquartile range. This will make it harder for a machine learning algorithm to distinguish between the two species levels when predicting using this variable. 
+
+# Box plot of sepal length: 
+
+```{r}
+# Create the box plot with custom fill colors.
+ggplot(
+  data = iris,
+  mapping = aes(x = Species, y = Sepal.Length, fill = Species)
+) +
+geom_boxplot() +
+scale_fill_manual(values = custom_colors) +  # Specify custom fill colors here.
+theme_light() +
+labs(title = 'Box plot of sepal length for each species',
+     x = 'Species', y = 'Sepal length')
+```
+
+The sepal length values for the three species show some degree of overlap in their ranges. 
+
+# Box plot of petal width:
+
+```{r}
+# Create the box plot with custom fill colors.
+ggplot(
+  data = iris,
+  mapping = aes(x = Species, y = Sepal.Length, fill = Species)
+) +
+geom_boxplot() +
+scale_fill_manual(values = custom_colors) +  # Specify custom fill colors here.
+theme_light() +
+labs(title = 'Box plot of sepal length for each species',
+     x = 'Species', y = 'Sepal length')
+```
+
+This box plot suggests that there is a noticeable variation in petal width among the different species. 
+
+# Box plot of petal length:
+
+```{r}
+# Create the box plot with custom fill colors.
+ggplot(
+  data = iris,
+  mapping = aes(x = Species, y = Petal.Length, fill = Species)
+) +
+geom_boxplot() +
+scale_fill_manual(values = custom_colors) +  # Specify custom fill colors here.
+theme_light() +
+labs(title = 'Box plot of petal length for each species',
+     x = 'Species', y = 'Petal length')
+```
+
+This plot seems to indicate that the three species vary in terms of interquartile range on petal length. The setosa-species seems to have a very narrow interquartile range and have quite a lot shorter petal length compared to the other two species.   
+
+# Data partitioning
+
+Random seed ensures that we can replicate our analysis consistently, enabling us to obtain the same results whenever we re-run our experiments.
+
+```{r}
+set.seed(222)
+```
+
+Split data 80% - 20% for training and testing.
+
+```{r}
+library(caret)
+
+train_index <- createDataPartition(y = iris$Species,  # y = our dependent variable.
+                                   p = .8,  # Specifies split into 80% & 20%.
+                                   list = FALSE,  # Sets results to matrix form. 
+                                   times = 1)  # Sets number of partitions to create to 1. 
+```
+
+Split  data into train and test data using the randomly sampled `train_index`. 
+
+```{r}
+train_data <- iris[train_index,]  # Use train_index of iris data to create train_data.
+test_data <- iris[-train_index,]  # Use whatever that is not in train_index to create test_data.
+```
+
+# Machine Learning
+
+Predict the species category (setosa, versicolor, virginica) for an iris flower.
+
+
+# Create Model
+
+Model the decision tree model with a 10 fold cross validation.
+
+```{r}
+fitControl <- trainControl(method = "cv", number = 10, savePredictions = TRUE)
+```
+
+Create a predictor model with the `train()` function from the CARET package. Specify `method = 'rpart'` to run a decision tree model. 
+
+```{r}
+# Create model
+dt_model <- train(Species ~ ., # Set Y variable followed by '~'. The period indicates to include all variables for prediction. 
+                     data = train_data, # Data
+                     method = 'rpart', # Specify SVM model
+                     trControl = fitControl) # Use cross validation
+```
+
+Check the predicted accuracy of our decision tree model by running it on resamples of *train data*. Later test the accuracy of the model by running a prediction on *test data*.
+
+```{r}
+confusionMatrix(dt_model)
+```
+The results here tell us that our average accuracy is 91.67% when testing our data on resamples of our training data. We can also see what was predicted correctly/incorrectly.
+
+Check the importance of each feature in our model.
+```{r}
+# Create object of importance of our variables 
+dt_importance <- varImp(dt_model)
+
+# Create plot of importance of variables
+ggplot(data = dt_importance, mapping = aes(x = dt_importance[,1])) + # Data & mapping
+  geom_boxplot() + # Create box plot
+  labs(title = "Variable importance: Decision tree model") + # Title
+  theme_light() # Theme
+```
+This table gives very informative overview of the importance of each variable in predicting the species. 
+
+Petal.Width and Petal.length are the most important factors here.
+  
+Plot the decision tree using `fancyRpartPlot()` from the RATTLE package.
+
+```{r}
+library(rattle)
+fancyRpartPlot(dt_model$finalModel)
+```
+
+* If petal length is smaller than 2.5, will be classified as *setosa*
+* If petal length is greater than or equal to 2.6, will be classified as *versicolor*, but....
+* If the petal width is greater than 1.8, will be classified as *virginica*
+
+# PREDICTION: Decision tree model
+
+Use the created `dt_model` to run a prediction on the test data.
+
+```{r}
+prediction_dt <- predict(dt_model, test_data)
+```
+
+Check the proportion of the predictions which were accurate.
+
+```{r}
+table(prediction_dt, test_data$Species) %>% # Create prediction table. 
+  prop.table() %>% # Convert table values into proportions instead of counts. 
+  round(2) # Round numbers to 2 significant values. 
+```
+```{r}
+# Calculate accuracy from the prediction table.
+prediction_table_dt <- table(prediction_dt, test_data$Species)
+accuracy_dt <- sum(diag(prediction_table_dt)) / sum(prediction_table_dt)
+accuracy_dt
+
+```
+**Final accuracy of Decision Tree model: 97%**
+
+A confusion matrix is used to evaluate the performance of a classification model by showing how well the model's predictions align with the actual classes. 
+
+- The actual classes are represented by the rows.
+- The predicted classes are represented by the columns.
+
+The values within the matrix represent the number of instances that were classified into each combination of actual and predicted classes. In this case, the numbers are presented as proportions (values between 0 and 1) rather than raw counts.
+
+- The value in the cell `(setosa, setosa)` is 0.33, which means that 33% of actual "setosa" instances were correctly predicted as "setosa."
+- The value in the cell `(versicolor, versicolor)` is 0.33, which means that 33% of actual "versicolor" instances were correctly predicted as "versicolor."
+- The value in the cell `(versicolor, virginica)` is 0.03, which means that 3% of actual "versicolor" instances were incorrectly predicted as "virginica."
+- The value in the cell `(virginica, virginica)` is 0.30, which means that 30% of actual "virginica" instances were correctly predicted as "virginica."
+
+Overall, the diagonal elements (e.g., `(setosa, setosa)`, `(versicolor, versicolor)`, and `(virginica, virginica)`) represent correct predictions, while the off-diagonal elements represent misclassifications.
+
+This confusion matrix provides information about the model's performance, particularly in terms of precision, recall, and accuracy. You can compute various metrics such as accuracy, precision, recall, and F1-score based on the values in the confusion matrix to assess how well the predictions were made.  
+
+
+Use 10 fold cross validation. Use `train()` function to set `trControl` next.
+
+```{r}
+fitControl <- trainControl(method = "cv", number = 10, savePredictions = TRUE)
+```
+
+Create a training model using `train()` from the CARET package. 
+
+```{r}
+# Create model
+rf_model <- train(
+                  Species ~ .,  # Set Y variable followed by "~." to include all variables in formula.
+                  method = 'rf',  # Set method as random forest.
+                  trControl = fitControl,  # Set cross validation settings
+                  data = train_data)  # Set data as train_data. 
+```
+
+Use the `varImp()` function to grab the importance of each variable. 
+
+```{r}
+# Create object of importance of our variables 
+rf_importance <- varImp(rf_model) 
+
+# Create box plot of importance of variables
+ggplot(data = rf_importance, mapping = aes(x = rf_importance[,1])) + # Data & mapping
+  geom_boxplot() + # Create box plot
+  labs(title = "Variable importance: Random forest model") + # Title
+  theme_light() # Theme
+```
+Petal length and width are the most important variables.
+  
+Check the predicted accuracy of the random forest model by running it on *train data*. Later test the accuracy of the model by running a prediction on *test data*.
+
+```{r}
+confusionMatrix(rf_model)
+```
+The predicted accuracy of model is 92.5%. 
+
+# Prediction: Random forest model
+
+Use `rf_model` to run a prediction on the test data.
+
+```{r}
+prediction_rf <- predict(rf_model, test_data)
+```
+
+Check the accuracy of random forest model on test data.
+
+```{r}
+table(prediction_rf, test_data$Species) %>% # Create prediction table. 
+  prop.table() %>% # Convert table values into proportions instead of counts. 
+  round(2) # Round numbers to 2 significant values. 
+```
+```{r}
+# Calculate accuracy for random forests predictions.
+prediction_table_rf <- table(prediction_rf, test_data$Species)
+accuracy_rf <- sum(diag(prediction_table_rf)) / sum(prediction_table_rf)
+accuracy_rf
+
+```
+**Final accuracy of Random Forest model: 97%**
+
+Model the Naive Bayes model with a 10 fold cross validation.
+
+```{r}
+fitControl <- trainControl(method = "cv", number = 10, savePredictions = TRUE)
+```
+
+Create a predictor model with the `train()` function from the CARET package.  Specify `method = 'nb'` to run a Naive Bayes model. 
+
+```{r}
+# Create model
+nb_model <- train(Species ~ ., # Set y variable followed by '~'. The period indicates that we want to use all our variables for prediction.
+                     data = train_data,
+                     method = 'nb', # Specify Naive Bayes model
+                     trControl = fitControl) # Use cross validation
+```
+
+Check the predicted accuracy of model by running it on *train data*. Later test the accuracy of the model by running a prediction on  *test data*.
+
+```{r}
+confusionMatrix(nb_model)
+```
+The average accuracy is 95% when testing data on training data. 
+
+Use the `varImp()` function to grab the importance of each variable. 
+
+```{r}
+# Create object of importance of our variables 
+nb_importance <- varImp(nb_model) 
+
+# Create box plot of importance of variables
+ggplot(data = nb_importance, mapping = aes(x = nb_importance[,1])) + # Data & mapping
+  geom_boxplot() + # Create box plot
+  labs(title = "Variable importance: Naive Bayes model") + # Title
+  theme_light() # Theme
+```
+This table gives very informative overview of the importance of each variable in predicting each species. The petal width and length are the two most important variables for predicting each species. 
+
+# PREDICTION: Naive Bayes Model 
+
+Use the created `nb_model` to run a prediction on the test data.
+
+```{r}
+prediction_nb <- predict(nb_model, test_data)
+```
+
+Check what proportion of the predictions which were accurate.
+
+```{r}
+table(prediction_nb, test_data$Species) %>% # Create prediction table. 
+  prop.table() %>% # Convert table values into proportions instead of counts. 
+  round(2) # Round numbers to 2 significant values. 
+```
+```{r}
+# Calculate accuracy from the prediction table.
+prediction_table_nb <- table(prediction_nb, test_data$Species)
+accuracy_nb <- sum(diag(prediction_table_nb)) / sum(prediction_table_nb)
+accuracy_nb
+```
+**Final accuracy of Naive Bayes model: 97%**
+
+Model the SVM model with a 10 fold cross validation.
+
+```{r}
+fitControl <- trainControl(method = "cv", number = 10, savePredictions = TRUE)
+```
+
+Create a predictor model with the `train()` function from the CARET package. Specify `method = 'svmLinear'` to run a SVM model. 
+
+```{r}
+# Create model
+svm_model <- train(Species ~ ., # Set Y variable followed by '~'. The period indicates to include all variables for prediction. 
+                     data = train_data, # Data
+                     method = 'svmLinear', # Specify SVM model
+                     trControl = fitControl) # Use cross validation
+```
+
+Check the predicted accuracy of naive Bayes model by running it on *train data*. Later test the accuracy of the model by running a prediction on *test data*.
+
+```{r}
+confusionMatrix(svm_model)
+```
+The average accuracy is 95% when testing data ontraining data.
+
+Use the `varImp()` function to grab the importance of each variable in random forest model and then plot them. 
+
+```{r}
+# Create object of importance of our variables 
+svm_importance <- varImp(svm_model)
+
+# Create box plot
+ggplot(data = svm_importance, mapping = aes(x = svm_importance[,1])) + # Data & mapping
+  geom_boxplot() + # Create box plot
+  labs(title = "Variable importance: Support vector machine model") + # Title
+  theme_light() # Theme
+```
+This table gives very informative overview of the importance of each variable in predicting each species. Petal length and petal width are the two most important variables for predicting each species. 
+  
+# PREDICTION: Support Vector Machine
+
+Use the created `svm_model` to run a prediction on the test data.
+
+```{r}
+prediction_svm <- predict(svm_model, test_data)
+```
+
+Check the proportion of the predictions which were accurate.
+
+```{r}
+table(prediction_svm, test_data$Species) %>% # Create prediction table. 
+  prop.table() %>% # Convert table values into proportions instead of counts. 
+  round(2) # Round numbers to 2 significant values. 
+```
+```{r}
+# Calculate accuracy for the SVM model from the prediction table.
+prediction_table_svm <- table(prediction_svm, test_data$Species)
+accuracy_svm <- sum(diag(prediction_table_svm)) / sum(prediction_table_svm)
+accuracy_svm
+
+```
+
+**Final accuracy of SVM model: 97%**
+
+
+**Table of results:**
+
+| Machine learning model | Predicted Accuracy | Tested accuracy |
+| :--------------------- | :----------------: | :-------------: |
+| Decision tree          |       91.67%       |       97%       |
+| Random Forest          |       92.5%        |       97%       |
+| Naive Bayes            |       95%          |       97%       |
+| Support Vector Machine |       95%          |       97%       |
+
+
+
