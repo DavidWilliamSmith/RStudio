@@ -1,0 +1,193 @@
+---
+title: "IMDBWebScraper"
+output:
+  html_document:
+    df_print: paged
+runtime: 
+---
+
+IMDB = Internet Movie Data Base
+
+IMDB.com is a renowned online database dedicated to cataloging information about movies, TV shows, and celebrities. Established in 1990, IMDb is now under the ownership of Amazon. The platform is highly regarded for its extensive offerings, encompassing film and TV show ratings, user reviews, trailers, detailed cast and crew information, as well as the latest industry news.
+
+In this context, we will embark on scraping data related to horror movies from IMDb, utilizing the 'rvest' package in R.
+
+Our goal is to extract information on horror films and the cast associated with them.
+
+```{r}
+# Install Libraries and once installed comment out
+
+#install.packages("tidyverse")
+#install.packages("rvest")
+
+```
+
+Both `tidyverse` and `rvest` are powerful tools that can greatly assist in various aspects of data analysis and web scraping within the R programming environment.
+
+# Some conflicts will come up but will not stop progress..
+
+```{r}
+# Load the libraries
+
+library(tidyverse)
+library(rvest)
+```
+# Create link to be used within IMDB as needed. 
+
+I like to change the genres around.... here I've changed it to horror
+
+```{r}
+# Read the link
+
+link = "https://www.imdb.com/search/title/?genres=horror&sort=user_rating,desc&title_type=feature&num_votes=30000,&pf_rd_m=A2FGELUUNOQJNL&pf_rd_p=f11158cc-b50b-4c4d-b0a2-40b32863395b&pf_rd_r=GMJM46PTFY8D7B4S5199&pf_rd_s=right-6&pf_rd_t=15506&pf_rd_i=top&ref_=chttp_gnr_1"
+
+page = read_html(link)
+```
+
+Extract the specific fields and their values
+
+```{r}
+# Extract from fields: name, year, genre, length, user rating, director and synopsis
+
+name<-page%>%html_nodes(".lister-item-header a")%>%html_text()
+year<-page%>%html_nodes(".text-muted.unbold")%>%html_text()
+genre<-page%>%html_nodes(".genre")%>%html_text()
+genre <- gsub("\n", " ", genre) # to remove \n
+length<-page%>%html_nodes(".runtime")%>%html_text()
+user_rating<-page%>%html_nodes(".ratings-imdb-rating strong")%>%html_text()
+director<-page%>%html_nodes(".text-muted+ p a:nth-child(1)")%>%html_text()
+synopsis<-page%>%html_nodes(".ratings-bar+ .text-muted")%>%html_text()
+synopsis <- gsub("\n", " ", synopsis) # to remove \n
+```
+
+
+```{r}
+# convert to df
+library(knitr)
+# Convert to data frame
+movies <- data.frame(name, year, genre, length, user_rating, director, synopsis)
+
+# Display the data frame using kable
+kable(movies)
+```
+
+# Print out specific details for specific movies
+
+```{r}
+# Filter the data frame to get the information for the movie "Alien"
+alien_movie <- movies[movies$name == "Alien", ]
+
+# Print the information for the movie "Alien"
+cat("Movie Name: ", alien_movie$name, "\n")
+cat("Year: ", alien_movie$year, "\n")
+cat("Genre: ", alien_movie$genre, "\n")
+cat("Length: ", alien_movie$length, "\n")
+cat("User Rating: ", alien_movie$user_rating, "\n")
+cat("Director: ", alien_movie$director, "\n")
+cat("Synopsis for 'Alien' movie:\n", alien_movie$synopsis, "\n")
+```
+# Awesome code to save csv for specific movie
+
+This code does the following:
+
+Extracts movie names, cleans up genre and synopsis.
+Stores movie information in a list (movie_info_list).
+Specifies the movie you want to convert to a CSV file.
+Checks if the chosen movie exists in the list.
+If the movie is found, it creates a data frame for the chosen movie and saves it as a CSV file with a filename based on the movie name.
+Replace "Alien" with the movie name you want to convert to a CSV file. The information for that movie will be saved in a CSV file with a filename like "Alien_info.csv."
+
+```{r}
+# Extract movie names from the web scraping
+name <- page %>% html_nodes(".lister-item-header a") %>% html_text()
+
+# Replace '\n' characters in 'genre' and 'synopsis'
+genre <- page %>% html_nodes(".genre") %>% html_text()
+genre <- gsub("\n", " ", genre)
+
+synopsis <- page %>% html_nodes(".ratings-bar+ .text-muted") %>% html_text()
+synopsis <- gsub("\n", " ", synopsis)
+
+# Initialize an empty list to store movie information
+movie_info_list <- list()
+
+# Loop through the extracted movie names and extract information
+for (movie_name in name) {
+  movie_data <- movies[movies$name == movie_name, ]
+
+  # Store the movie information in the list
+  movie_info_list[[movie_name]] <- movie_data
+}
+
+# Specify the movie you want to convert to CSV (e.g., "Alien")
+chosen_movie <- "Alien"
+
+# Check if the chosen movie exists in the list
+if (chosen_movie %in% names(movie_info_list)) {
+  # Create a data frame with the information for the chosen movie
+  chosen_movie_data <- movie_info_list[[chosen_movie]]
+  
+  # Define the filename for the CSV
+  csv_filename <- paste0(chosen_movie, "_info.csv")
+  
+  # Write the chosen movie's information to a CSV file
+  write.csv(chosen_movie_data, csv_filename, row.names = FALSE)
+  
+  cat("The information for '", chosen_movie, "' has been saved to '", csv_filename, "'.\n")
+} else {
+  cat("Movie not found in the list.")
+}
+
+```
+# Convert all data from genre into .csv
+
+The code goes through multiple website pages, extracting movie data for each page. 
+
+The "get_cast" function finds cast members' names by taking movie links, reading the HTML, and using CSS selectors. 
+
+Store all this in the "horror-movies" data frame.
+
+A loop navigates through website pages, creating URLs, reading HTML, and extracting data. 
+
+Use "sapply" to get cast information for each movie link.
+
+Once all data is collected, the "movies" data frame is filled, and the loop moves to the next page.
+
+You can view the scraped data and save it as a CSV file. 
+
+This code helps you gather movie data from IMDb for analysis or other purposes.
+
+```{r}
+# Extract movie names from the web scraping
+name <- page %>% html_nodes(".lister-item-header a") %>% html_text()
+
+# Replace '\n' characters in 'genre' and 'synopsis'
+genre <- page %>% html_nodes(".genre") %>% html_text()
+genre <- gsub("\n", " ", genre)
+
+synopsis <- page %>% html_nodes(".ratings-bar+ .text-muted") %>% html_text()
+synopsis <- gsub("\n", " ", synopsis)
+
+# Initialize an empty list to store movie information
+movie_info_list <- list()
+
+# Loop through the extracted movie names and extract information
+for (movie_name in name) {
+  movie_data <- movies[movies$name == movie_name, ]
+
+  # Store the movie information in the list
+  movie_info_list[[movie_name]] <- movie_data
+}
+
+# Create a data frame with information for all movies
+all_movies_data <- do.call(rbind, movie_info_list)
+
+# Define the filename for the CSV
+csv_filename <- "all_horror_movies_info.csv"
+
+# Write information for all movies to a CSV file
+write.csv(all_movies_data, csv_filename, row.names = FALSE)
+
+cat("The information for all horror movies has been saved to '", csv_filename, "'.\n")
+
+```
