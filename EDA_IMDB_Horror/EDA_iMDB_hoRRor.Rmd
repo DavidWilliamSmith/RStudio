@@ -1,0 +1,225 @@
+---
+title: "EDA_IMDB_Horror_Genre"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r}
+# Install Libraries and once packages are installed comment out
+
+#install.packages("tidyverse")
+#install.packages("rvest")
+#install.packages("corrplot")
+
+```
+```{r}
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(tidyr)
+```
+
+# .csv file created from IMDBwebscraper
+
+Data for genre has lots of different categories other than horror, even though I chose the horror genre specifically when scraping IMDB. 
+
+The Horror genre can be mashed well with all the other movie categories .
+
+```{r}
+# Read the CSV file into a dataframe
+df <- read.csv("all_horror_movies_info.csv")
+
+# View the first few rows of the dataframe to verify the data
+head(df)
+```
+# Data Cleaning:
+
+Ensure that your data is clean and properly formatted. Convert variables to appropriate data types, clean up column names, and deal with any missing values.
+
+```{r}
+# Convert year, length, and user_rating to numeric
+df <- df %>%
+  mutate(year = as.numeric(str_extract(year, "\\d{4}")),
+         length = as.numeric(str_extract(length, "\\d+")),
+         user_rating = as.numeric(user_rating))
+
+# Remove unnecessary characters from the name and genre columns
+df <- df %>%
+  mutate(name = str_trim(gsub("\\(.*\\)", "", name)),
+         genre = str_trim(genre))
+
+```
+
+# Summary Statistics:
+Get an overview of your data with summary statistics.
+
+I find the range of the length of the movies interesting because a great movie can be short or long or right in between.
+
+Interesting thing is the user ratings 3rd quarter to Max deviations are greater than the other quarters.
+
+Also a highly IMDB rated horror movie hasn't come out since 2018
+
+```{r}
+summary(df)
+```
+# Histogram of User Ratings:
+
+Horror genre is averaging an IMDB rating 7.8
+
+```{r}
+# Calculate the average user rating
+avg_rating <- mean(df$user_rating)
+
+# Create the histogram with the average rating marked
+ggplot(df, aes(x = user_rating)) +
+  geom_histogram(binwidth = 0.1, fill = "black", color = "yellow") +
+  geom_vline(xintercept = avg_rating, color = "red", linetype = "dashed", size = 1) +  # Add a vertical line
+  annotate("text", x = avg_rating, y = 10, label = paste("Avg:", round(avg_rating, 1)), color = "red") +  # Add text annotation
+  labs(title = "Distribution of User Ratings", x = "User Rating", y = "Frequency")
+
+```
+# Bar Plot of Movie Counts by Director:
+
+```{r}
+df %>%
+  group_by(director) %>%
+  summarize(movie_count = n()) %>%
+  filter(movie_count >= 2) %>%  # Filter for directors with 2 or more movies
+  arrange(desc(movie_count)) %>%
+  top_n(10) %>%  # Select the top 10 directors
+  ggplot(aes(x = reorder(director, -movie_count), y = movie_count)) +
+  geom_bar(stat = "identity", fill = "black", color = "yellow") +
+  labs(title = "Directors with at least 2 Horror Movies", x = "Director", y = "Movie Count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+# Most Horror Movies made that made the IMDB ratings top were directed by James Whale: 
+
+James Whale was an English film director, theatre director and actor. He is best remembered for his four classic horror films: Frankenstein (1931), The Old Dark House (1932), The Invisible Man (1933) and The Bride of Frankenstein (1935). He also directed films in other genres, including what is considered the definitive film version of the musical Show Boat (1936).
+
+Wonder how many other horror movies each of these directors made and if they where rated high on IMDB?
+
+```{r}
+
+# Filter for directors with 2 or more movies
+top_directors <- df %>%
+  group_by(director) %>%
+  summarize(movie_count = n()) %>%
+  filter(movie_count >= 2) %>%
+  arrange(desc(movie_count))
+
+# Filter the original dataset to include only movies directed by these directors
+filtered_df <- df %>%
+  filter(director %in% top_directors$director)
+
+# Print directors and their movies
+for (director_name in unique(filtered_df$director)) {
+  cat("Director:", director_name, "\n")
+  movies_by_director <- filtered_df %>% filter(director == director_name)
+  cat("Movies:", paste(movies_by_director$name, collapse = ", "), "\n")
+  cat("\n")
+}
+
+```
+# Bar chart of Most Common Sub-category within Horror Movies
+
+Horror Drama genre is the most common of the horror movies that are rated high.
+Animated Horror genre is the least common of the horror  movies.
+
+Does Horror Drama movies make the best rated horror movie?
+
+```{r}
+
+# Explore the structure of the dataset
+str(df)
+
+# Create a bar chart for the most common genres, excluding "Horror"
+df$genre <- trimws(df$genre)  # Remove leading/trailing white spaces
+genres <- unlist(strsplit(df$genre, ", "))
+
+# Remove "Horror" from the list of genres
+genres <- genres[genres != "Horror"]
+
+genre_counts <- data.frame(genre = genres) %>%
+  group_by(genre) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count))
+
+ggplot(genre_counts, aes(x = reorder(genre, -count), y = count)) +
+  geom_bar(stat = "identity", fill = "black", color = "yellow") +
+  labs(title = "Most Common Horror Movie Genres (Excluding Horror)",
+       x = "Genre",
+       y = "Count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+# Time Series line chart to isolate at what year were these great horror movies were made
+
+I can see where James Whales Directed his classic horror movies and there was a group of great ones directed in the late 60's to ealry 70's and another push in the late 90's.
+
+What year would have been the best for a director to make a horror movie?
+```{r}
+
+# Filter out rows with missing "year" values
+df_filtered <- df[!is.na(df$year),]
+
+# Create a summary of movie counts by year
+movie_counts_by_year <- df_filtered %>%
+  group_by(year) %>%
+  summarize(count = n())
+
+# Filter out years with a count less than 1
+movie_counts_by_year <- movie_counts_by_year %>%
+  filter(count >= 1)
+
+# Create the line plot with yellow area underneath the curve
+ggplot(movie_counts_by_year, aes(x = year, y = count)) +
+  geom_ribbon(aes(ymin = 1, ymax = count), fill = "black", alpha = 0.9) +
+  geom_line(color = "yellow", size = 1) +
+  labs(title = "Horror Movie Releases Over Time",
+       x = "Year",
+       y = "Number of Movies")
+
+```
+# Box plot to show horror movie length by top 5 sub genres
+
+This plot is interesting becausing its showing that Horror Drama movies have the longest duration.
+
+Does movie durations affect user_ratings?
+
+```{r}
+# Set the number of top genres to display
+top_n_genres <- 5
+
+# Create a summary of movie counts by genre
+genre_counts <- df %>%
+  group_by(genre) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count))
+
+# Select the top N genres by count
+top_genres <- head(genre_counts$genre, n = top_n_genres)
+
+# Filter the dataset to include only the top N genres
+df_filtered <- df[df$genre %in% top_genres,]
+
+# Create a manual color palette for the top genres
+color_palette <- c("gold", "black", "grey", "beige", "yellow")  # Add more colors as needed
+
+# Create a box plot for movie length by genre
+ggplot(df_filtered, aes(x = reorder(genre, -length), y = as.numeric(gsub(" min", "", length)), fill = genre)) +
+  geom_boxplot() +
+  labs(title = "Movie Length by Genre (Top 5 Genres)",
+       x = "Genre",
+       y = "Length (minutes)",
+       fill = "") +
+  scale_fill_manual(values = color_palette) +
+  theme(axis.text.x = element_blank())  # Remove x-axis labels
+
+```
+
+
+
+
