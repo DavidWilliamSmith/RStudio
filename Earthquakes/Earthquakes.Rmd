@@ -1,0 +1,94 @@
+---
+title: "Earthquakes"
+output: html_notebook
+---
+
+I developed a dashboard in Tableau utilizing the earthquake dataset, and now, in my exploration of the data, I am seeking to generate additional visualizations in RStudio to gain further insights and perspectives from the same dataset. This multi-tool approach allows me to leverage the strengths of both Tableau and RStudio for a comprehensive analysis of earthquake patterns and trends.
+```{r}
+# Install and load necessary packages
+install.packages(c("ggplot2", "maps", "readxl"))
+library(ggplot2)
+library(maps)
+library(readxl)
+```
+```{r}
+# GitHub URL of the Excel file
+github_url <- "https://raw.githubusercontent.com/DavidWilliamSmith/RStudio/main/Earthquakes/Mag6PlusEarthquakes_1900-2013.xlsx"
+
+# Download the Excel file to a temporary location
+temp_file <- tempfile(fileext = ".xlsx")
+download.file(github_url, destfile = temp_file, mode = "wb")
+
+# Read the Excel file into R
+quakes <- read_excel(temp_file)
+
+# View the first few rows of the dataset
+head(quakes)
+
+# Remove the temporary file
+unlink(temp_file)
+```
+
+```{r}
+# Set the background color and font color
+theme_custom <- theme(
+  plot.background = element_rect(fill = "black"),
+  panel.background = element_rect(fill = "black"),
+  legend.text = element_text(color = "white"),
+  legend.title = element_text(color = "white"),
+  axis.text = element_text(color = "white"),
+  axis.title = element_text(color = "white")
+)
+```
+# 1. Global Map to display Magnitude Intensity
+```{r}
+# Create a ggplot with a global map and color contrast for earthquake intensities
+gg_global_map <- ggplot() +
+  borders("world", colour = "white", fill = NA) +
+  geom_point(data = quakes, aes(x = longitude, y = latitude, color = mag), size = 2) +
+  scale_color_gradient(low = "lightblue", high = "blue") +
+  labs(title = "Global Earthquake Map with Intensity",
+       subtitle = "Using ggplot2 in RStudio",
+       x = "Longitude",
+       y = "Latitude",
+       color = "Magnitude") +
+  theme_minimal() +
+  theme_custom
+
+# Print the global map with color contrast
+print(gg_global_map)
+```
+# 2. Histogram displaying Magnitude Frequencies
+```{r}
+ggplot(quakes, aes(x = mag)) +
+  geom_histogram(binwidth = 0.3, fill = "blue", color = "white", alpha = 0.8) +
+  scale_fill_gradient(low = "lightblue", high = "blue") +
+  labs(title = "Histogram of Earthquake Magnitudes",
+       x = "Magnitude",
+       y = "Frequency") +
+  theme_minimal() +
+  theme_custom
+
+```
+# 3. Time Series displaying Earthquakes occurrences in Years
+```{r}
+# Create a ggplot with a time series of earthquakes by magnitude
+gg_time_series <- ggplot(quakes, aes(x = Date, y = ..count.., color = as.factor(mag), group = as.factor(mag))) +
+  geom_area(stat = "count", size = 0.5, alpha = 0.7) +
+  labs(title = "Time Series of Earthquakes by Magnitude",
+       subtitle = "Using ggplot2 in RStudio",
+       x = "Date",
+       y = "Total Earthquakes",
+       color = "Magnitude") +
+  scale_color_discrete(name = "Magnitude") +
+  theme_minimal() +
+  theme_custom
+
+# Print the time series plot
+print(gg_time_series)
+```
+
+
+
+
+
